@@ -4,78 +4,85 @@ import javax.swing.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class TimerTask implements Runnable {
-    // Use AtomicLong and AtomicBoolean for thread-safe state management
+public class TimerTask {
     private final AtomicLong duration;
     private final AtomicLong timeRemaining;
     private final AtomicBoolean isPaused;
     private final AtomicBoolean isRunning;
     private final TimerPanel timerPanel;
     
-    // Use a volatile Thread to allow safe interruption
-    private volatile Thread currentThread;
+    private Thread timerThread;
+    private long lastUpdateTime;
 
     public TimerTask(long duration, TimerPanel timerPanel) {
         this.duration = new AtomicLong(duration);
         this.timeRemaining = new AtomicLong(duration);
         this.timerPanel = timerPanel;
         
-        // Initialize atomic state flags
         this.isPaused = new AtomicBoolean(false);
         this.isRunning = new AtomicBoolean(false);
+        this.lastUpdateTime = System.currentTimeMillis();
     }
 
-    @Override
-    public void run() {
-        // Ensure we're not already running
+    public void startTimer() {
         if (!isRunning.compareAndSet(false, true)) {
             return;
         }
 
-        currentThread = Thread.currentThread();
-
-        while (!Thread.currentThread().isInterrupted() && timeRemaining.get() > 0) {
-            // Check if paused
-            while (isPaused.get()) {
-                try {
-                    // Use a small sleep to prevent busy waiting
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-
+        timerThread = new Thread(() -> {
             try {
-                // Sleep for 1 second
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                // Restore interrupted status and break the loop
-                Thread.currentThread().interrupt();
-                break;
-            }
+                while (!Thread.currentThread().isInterrupted() && timeRemaining.get() > 0) {
+                    // Handle pause state
+                    while (isPaused.get()) {
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
 
-            // Decrement time safely
-            long newTimeRemaining = timeRemaining.addAndGet(-1000);
+                    // Calculate precise elapsed time
+                    long currentTime = System.currentTimeMillis();
+                    long elapsedTime = currentTime - lastUpdateTime;
+                    
+                    try {
+                        Thread.sleep(Math.max(0, 1000 - elapsedTime));
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
 
-            // Update UI on Event Dispatch Thread
-            SwingUtilities.invokeLater(() -> {
-                if (newTimeRemaining > 0) {
-                    timerPanel.updateTime(newTimeRemaining);
-                } else {
-                    timerPanel.onTimeUp();
-                    stopTimer();
+                    // Update last update time
+                    lastUpdateTime = System.currentTimeMillis();
+
+                    // Decrement time safely
+                    long newTimeRemaining = timeRemaining.addAndGet(-1000);
+
+                    // Update UI on Event Dispatch Thread
+                    SwingUtilities.invokeLater(() -> {
+                        if (newTimeRemaining > 0) {
+                            timerPanel.updateTime(newTimeRemaining);
+                        } else {
+                            // Ensure we stop exactly at 0
+                            timerPanel.updateTime(0);
+                            timerPanel.onTimeUp();
+                            stopTimer();
+                        }
+                    });
+
+                    // Break if time is up
+                    if (newTimeRemaining <= 0) {
+                        break;
+                    }
                 }
-            });
-
-            // Break if time is up
-            if (newTimeRemaining <= 0) {
-                break;
+            } finally {
+                // Ensure running state is reset
+                isRunning.set(false);
             }
-        }
+        });
 
-        // Reset running state
-        isRunning.set(false);
+        timerThread.start();
     }
 
     public void pauseTimer() {
@@ -83,39 +90,32 @@ public class TimerTask implements Runnable {
     }
 
     public void resumeTimer() {
+        lastUpdateTime = System.currentTimeMillis();
         isPaused.set(false);
     }
 
-    public synchronized void resetTimer(long newDuration) {
-        // Stop the current timer if running
+    public void resetTimer(long newDuration) {
+        // Stop the current timer
         stopTimer();
 
         // Reset duration and time remaining
         duration.set(newDuration);
         timeRemaining.set(newDuration);
+        lastUpdateTime = System.currentTimeMillis();
 
-        // Start a new timer
-//        startTimer();
+        // Update the UI to show the new duration
+        SwingUtilities.invokeLater(() -> {
+            timerPanel.updateTime(newDuration);
+        });
     }
 
     public void stopTimer() {
-        // Interrupt the current thread if running
-        if (currentThread != null) {
-            currentThread.interrupt();
+        if (timerThread != null) {
+            timerThread.interrupt();
         }
         
-        // Reset states
         isRunning.set(false);
         isPaused.set(false);
-    }
-
-    public void startTimer() {
-        // Ensure we're not already running
-        if (!isRunning.get()) {
-            // Create and start a new thread
-            Thread timerThread = new Thread(this);
-            timerThread.start();
-        }
     }
 
     public boolean isRunning() {

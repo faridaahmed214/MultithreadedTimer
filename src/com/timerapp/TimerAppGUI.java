@@ -2,88 +2,192 @@ package com.timerapp;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 public class TimerAppGUI extends JFrame {
-    private final JPanel timersPanel;
-    private final TimerManager manager;
-
     public TimerAppGUI() {
-        setTitle("Gradient Timer App");
-        setSize(900, 600);
+        TimerManager manager = new TimerManager();
+        
+        // Main panel with gradient background
+        GradientPanel mainPanel = new GradientPanel(
+            new Color(75, 0, 130),    // Indigo
+            new Color(138, 43, 226)   // Blue Violet
+        );
+        mainPanel.setLayout(new GridLayout(0, 2, 15, 15));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Custom input panel
+        JPanel inputPanel = new JPanel(new GridBagLayout());
+        inputPanel.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+
+        // Styled labels and fields
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 14);
+        Font fieldFont = new Font("Monospaced", Font.BOLD, 16);
+
+        JLabel hoursLabel = new JLabel("Hours:");
+        JLabel minutesLabel = new JLabel("Minutes:");
+        JLabel secondsLabel = new JLabel("Seconds:");
+        
+        hoursLabel.setForeground(Color.WHITE);
+        minutesLabel.setForeground(Color.WHITE);
+        secondsLabel.setForeground(Color.WHITE);
+        
+        hoursLabel.setFont(labelFont);
+        minutesLabel.setFont(labelFont);
+        secondsLabel.setFont(labelFont);
+
+        JTextField hoursField = new JTextField("00", 2);
+        JTextField minutesField = new JTextField("00", 2);
+        JTextField secondsField = new JTextField("00", 2);
+
+        // Consistent styling for text fields
+        hoursField.setFont(fieldFont);
+        minutesField.setFont(fieldFont);
+        secondsField.setFont(fieldFont);
+        
+        hoursField.setHorizontalAlignment(JTextField.CENTER);
+        minutesField.setHorizontalAlignment(JTextField.CENTER);
+        secondsField.setHorizontalAlignment(JTextField.CENTER);
+
+        // Add key listeners to validate and format input
+        addNumericValidation(hoursField, 23);
+        addNumericValidation(minutesField, 59);
+        addNumericValidation(secondsField, 59);
+
+        // Add Timer Button with custom styling
+        JButton addTimerButton = new JButton("Create Timer");
+        addTimerButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        addTimerButton.setBackground(new Color(106, 13, 173));
+        addTimerButton.setForeground(Color.black);
+        addTimerButton.setFocusPainted(false);
+        addTimerButton.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(75, 0, 130), 2),
+            BorderFactory.createEmptyBorder(10, 20, 10, 20)
+        ));
+
+        // Layout the input components
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        inputPanel.add(hoursLabel, gbc);
+        gbc.gridx = 1;
+        inputPanel.add(hoursField, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        inputPanel.add(minutesLabel, gbc);
+        gbc.gridx = 1;
+        inputPanel.add(minutesField, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        inputPanel.add(secondsLabel, gbc);
+        gbc.gridx = 1;
+        inputPanel.add(secondsField, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        inputPanel.add(addTimerButton, gbc);
+
+        // Action listener for adding timer
+        addTimerButton.addActionListener(e -> {
+            try {
+                int hours = Integer.parseInt(hoursField.getText());
+                int minutes = Integer.parseInt(minutesField.getText());
+                int seconds = Integer.parseInt(secondsField.getText());
+                
+                // Check if at least one non-zero value is entered
+                if (hours == 0 && minutes == 0 && seconds == 0) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Please enter a non-zero duration in at least one field", 
+                        "Invalid Duration", 
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                // Calculate total duration in milliseconds
+                long duration = (hours * 3600L + minutes * 60L + seconds) * 1000;
+                
+                TimerPanel panel = new TimerPanel(duration, manager);
+                mainPanel.add(panel);
+                mainPanel.revalidate();
+                mainPanel.repaint();
+                
+                // Reset fields after adding timer
+                hoursField.setText("00");
+                minutesField.setText("00");
+                secondsField.setText("00");
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, 
+                    "Please enter valid numbers", 
+                    "Invalid Input", 
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        // Frame setup
+        setLayout(new BorderLayout(15, 15));
+        add(inputPanel, BorderLayout.NORTH);
+        add(new JScrollPane(mainPanel), BorderLayout.CENTER);
+        
+        setTitle("Quantum Timer");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-
-        manager = new TimerManager();
-
-        JPanel headerPanel = new GradientPanel(new Color(58, 123, 213), new Color(34, 193, 195));
-        headerPanel.setPreferredSize(new Dimension(getWidth(), 70));
-        headerPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-
-        JLabel titleLabel = new JLabel("⏱️ Timer App");
-        titleLabel.setFont(new Font("Sans Serif", Font.BOLD, 28));
-        titleLabel.setForeground(Color.WHITE);
-        headerPanel.add(titleLabel);
-        add(headerPanel, BorderLayout.NORTH);
-
-        JPanel addTimerPanel = new JPanel();
-        addTimerPanel.setBackground(new Color(44, 62, 80));
-        addTimerPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
-
-        JLabel durationLabel = new JLabel("⏳ Duration (sec): ");
-        durationLabel.setForeground(Color.WHITE);
-        durationLabel.setFont(new Font("Sans Serif", Font.BOLD, 16));
-
-        JTextField durationField = new JTextField(10);
-        durationField.setFont(new Font("Sans Serif", Font.PLAIN, 16));
-
-        JButton addButton = createButton("➕ Add Timer");
-        addButton.setBackground(new Color(39, 174, 96));
-        addButton.setForeground(Color.WHITE);
-
-        addTimerPanel.add(durationLabel);
-        addTimerPanel.add(durationField);
-        addTimerPanel.add(addButton);
-        add(addTimerPanel, BorderLayout.SOUTH);
-
-        timersPanel = new JPanel();
-        timersPanel.setLayout(new GridLayout(0, 2, 15, 15)); 
-        timersPanel.setBackground(new Color(52, 73, 94));
-
-        JScrollPane scrollPane = new JScrollPane(timersPanel);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        add(scrollPane, BorderLayout.CENTER);
-
-    addButton.addActionListener(e -> {
-    String input = durationField.getText();
-    try {
-        long duration = Long.parseLong(input) * 1000;
-        if (duration <= 0 || duration > 86400000) {
-            JOptionPane.showMessageDialog(this, "Duration must be between 1 and 86400 seconds.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        TimerPanel timerPanel = new TimerPanel(duration, manager);
-        timersPanel.add(timerPanel);
-        timersPanel.revalidate();
-        timersPanel.repaint();
-    } catch (NumberFormatException ex) {
-        JOptionPane.showMessageDialog(this, "Please enter a valid number!", "Error", JOptionPane.ERROR_MESSAGE);
-    }
-});
-
+        setSize(900, 700);
+        getContentPane().setBackground(new Color(75, 0, 130));
     }
 
-    private JButton createButton(String text) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Sans Serif", Font.BOLD, 14));
-        button.setFocusPainted(false);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-        return button;
+    // Helper method to add numeric validation
+    private void addNumericValidation(JTextField field, int maxValue) {
+        field.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                
+                // Allow only digits and backspace
+                if (!((c >= '0') && (c <= '9') || 
+                      (c == KeyEvent.VK_BACK_SPACE) || 
+                      (c == KeyEvent.VK_DELETE))) {
+                    e.consume();
+                    return;
+                }
+                
+                // Limit to 2 digits
+                if (field.getText().length() >= 2 && 
+                    c != KeyEvent.VK_BACK_SPACE && 
+                    c != KeyEvent.VK_DELETE) {
+                    e.consume();
+                    return;
+                }
+                
+                // Validate max value after input
+                SwingUtilities.invokeLater(() -> {
+                    try {
+                        if (!field.getText().isEmpty()) {
+                            int value = Integer.parseInt(field.getText());
+                            if (value > maxValue) {
+                                field.setText(String.format("%02d", maxValue));
+                            }
+                        }
+                    } catch (NumberFormatException ex) {
+                        field.setText("00");
+                    }
+                });
+            }
+        });
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            TimerAppGUI app = new TimerAppGUI();
-            app.setVisible(true);
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                new TimerAppGUI().setVisible(true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         });
     }
 }
