@@ -97,7 +97,7 @@ public class TimerPanel extends JPanel {
         JButton button = new JButton(text);
         button.setFont(new Font("Sans Serif", Font.BOLD, 14));
         button.setBackground(color);
-        button.setForeground(Color.WHITE);
+        button.setForeground(Color.black);
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         return button;
