@@ -12,7 +12,6 @@ public class TimerPanel extends JPanel {
         this.timerManager = timerManager;
         setLayout(new BorderLayout());
         
-        // Use gradient background
         setBackground(new Color(102, 51, 153));
         setBorder(BorderFactory.createLineBorder(new Color(153, 102, 204), 2));
         
@@ -67,7 +66,6 @@ public class TimerPanel extends JPanel {
     }
     
     public void onTimeUp() {
-        // Enhanced time-up dialog with purple theme
         JOptionPane optionPane = new JOptionPane(
             "Time is up!", 
             JOptionPane.INFORMATION_MESSAGE, 
@@ -87,7 +85,6 @@ public class TimerPanel extends JPanel {
         long minutes = (time / (1000 * 60)) % 60;
         long hours = (time / (1000 * 60 * 60));
         
-        // Ensure we stop exactly at 00:00:00
         return time > 0 
             ? String.format("%02d:%02d:%02d", hours, minutes, seconds)
             : "00:00:00";

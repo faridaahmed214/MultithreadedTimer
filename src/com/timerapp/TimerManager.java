@@ -12,7 +12,6 @@ public class TimerManager {
     }
     
     public void startTimer(TimerTask timer) {
-        // Ensure the timer is not already running
         if (!timer.isRunning()) {
             timers.add(timer);  
             timer.startTimer(); 

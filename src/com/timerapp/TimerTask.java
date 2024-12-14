@@ -10,7 +10,7 @@ public class TimerTask {
     private final AtomicBoolean isPaused;
     private final AtomicBoolean isRunning;
     private final TimerPanel timerPanel;
-    
+
     private Thread timerThread;
     private long lastUpdateTime;
 
@@ -18,7 +18,7 @@ public class TimerTask {
         this.duration = new AtomicLong(duration);
         this.timeRemaining = new AtomicLong(duration);
         this.timerPanel = timerPanel;
-        
+
         this.isPaused = new AtomicBoolean(false);
         this.isRunning = new AtomicBoolean(false);
         this.lastUpdateTime = System.currentTimeMillis();
@@ -31,54 +31,41 @@ public class TimerTask {
 
         timerThread = new Thread(() -> {
             try {
-                while (!Thread.currentThread().isInterrupted() && timeRemaining.get() > 0) {
-                    // Handle pause state
-                    while (isPaused.get()) {
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            return;
-                        }
-                    }
+                lastUpdateTime = System.currentTimeMillis();
 
-                    // Calculate precise elapsed time
+                while (!Thread.currentThread().isInterrupted() && timeRemaining.get() > 0) {
                     long currentTime = System.currentTimeMillis();
                     long elapsedTime = currentTime - lastUpdateTime;
-                    
-                    try {
-                        Thread.sleep(Math.max(0, 1000 - elapsedTime));
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return;
+
+                    if (isPaused.get()) {
+                        lastUpdateTime = currentTime; 
+                        Thread.sleep(100); 
+                        continue;
                     }
 
-                    // Update last update time
-                    lastUpdateTime = System.currentTimeMillis();
+                    if (elapsedTime >= 1000) {
+                        timeRemaining.addAndGet(-1000); 
+                        lastUpdateTime += 1000; 
 
-                    // Decrement time safely
-                    long newTimeRemaining = timeRemaining.addAndGet(-1000);
-
-                    // Update UI on Event Dispatch Thread
-                    SwingUtilities.invokeLater(() -> {
-                        if (newTimeRemaining > 0) {
-                            timerPanel.updateTime(newTimeRemaining);
-                        } else {
-                            // Ensure we stop exactly at 0
-                            timerPanel.updateTime(0);
-                            timerPanel.onTimeUp();
-                            stopTimer();
-                        }
-                    });
-
-                    // Break if time is up
-                    if (newTimeRemaining <= 0) {
-                        break;
+                        SwingUtilities.invokeLater(() -> {
+                            long remaining = timeRemaining.get();
+                            if (remaining > 0) {
+                                timerPanel.updateTime(remaining);
+                            } else {
+                                timerPanel.updateTime(0);
+                                timerPanel.onTimeUp();
+                                stopTimer();
+                            }
+                        });
                     }
+
+                    long sleepTime = Math.max(1, 1000 - elapsedTime);
+                    Thread.sleep(sleepTime);
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); 
             } finally {
-                // Ensure running state is reset
-                isRunning.set(false);
+                isRunning.set(false); 
             }
         });
 
@@ -95,25 +82,19 @@ public class TimerTask {
     }
 
     public void resetTimer(long newDuration) {
-        // Stop the current timer
         stopTimer();
 
-        // Reset duration and time remaining
         duration.set(newDuration);
         timeRemaining.set(newDuration);
         lastUpdateTime = System.currentTimeMillis();
 
-        // Update the UI to show the new duration
-        SwingUtilities.invokeLater(() -> {
-            timerPanel.updateTime(newDuration);
-        });
+        SwingUtilities.invokeLater(() -> timerPanel.updateTime(newDuration));
     }
 
     public void stopTimer() {
         if (timerThread != null) {
             timerThread.interrupt();
         }
-        
         isRunning.set(false);
         isPaused.set(false);
     }
